@@ -16,6 +16,7 @@
 
 * Chg1- KSHDR55 INCLUDED
 * CHG2- 4676- INHDRR9
+* CHG3- #5352- Add failure notifications to Nitec10
 * =======================================================
 * Working fields, lists & groups
 * =======================================================
