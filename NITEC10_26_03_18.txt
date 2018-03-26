@@ -1,0 +1,201 @@
+* RUOM_GENERATED
+* =======================================================
+* Copyright .....: (C) ViaTech Publishing Solutions  , 19
+* 93, 1995.
+* Process .......: NITEPROC01
+* Function ......: NITEC06
+* Created by ....: MLEONARD
+* Created on ....: 05/08/09 at 21:28:24
+* Description ...: Nightly Long Running Jobs
+* RUOM Version...: 2.00
+
+
+* Remember: Job is Submitted after midnight, any
+* "today date" dependent jobs must
+* CALL SETDATE to subtract 1 from current date
+
+* Chg1- KSHDR55 INCLUDED
+* CHG2- 4676- INHDRR9
+* =======================================================
+* Working fields, lists & groups
+* =======================================================
+Def_Cond Name(*MONDAY) Cond('#WK_DAYNAM *EQ MONDAY')
+Override Field(#WK_FLAG1) Label('Run Nite Daily:')
+Override Field(#WK_DESC1) Length(8)
+Override Field(#WK_DESC2) Length(23)
+
+* =======================================================
+* =======================================================
+* Program Mainline
+
+Function Options(*DIRECT *MLOPTIMISE *DEFERWRITE)
+
+* =======================================================
+
+Def_Report Outq(EODOUTQ)
+
+Def_Head Name(#HDR01) Fields((#PROCESS *L001 *P002) (#WK_COMP *L001 *P046 *NOID) (#REP1PAGE *L001 *P104) (#FUNCTION *L002 *P002) (#STD_TITLE *L002 *P041 *NOID) (#DATE *L002 *P104) (#USER *L003 *P002) (#TIME *L003 *P104)) Design(*DOWN)
+
+Def_Line Name(#DET01) Fields(#UFFUNM #UFDESC #DATE #WK_TIME) Space_Bef(2)
+
+Def_Line Name(#ERR01) Fields((#WK_ERRMSG *L001 *P064 *NOID))
+
+* Set Report Title
+Change Field(#STD_TITLE) To('''Nightly Everyday Run Audit''')
+* Center Company Name and Title
+Use Builtin(CENTRE) With_Args(*COMPANY) To_Get(#WK_COMP)
+Use Builtin(CENTRE) With_Args(#STD_TITLE) To_Get(#STD_TITLE)
+* =======================================================
+If Cond('*JOBMODE = I')
+
+Pop_Up Fields((#WK_FLAG1 *L3 *P2 *IN)) Down_Sep(1) Across_Sep(1) At_Loc(4 34) With_Size(44 10)
+
+Begincheck
+Valuecheck Field(#WK_FLAG1) With_List(Y N) Msgid(VIA0111) Msgf(VIAMSGS)
+Endcheck
+
+If Cond('#WK_FLAG1 = N')
+Return
+Endif
+
+If Cond('#WK_DEBUG = Y')
+Goto Label(DBG)
+Endif
+
+Message Msgtxt('Nightly Everyday Running Submitted to Batch Processing...')
+
+Submit Process(#PROCESS) Function(#FUNCTION) Job(NITE_EDAY) Jobd(VIAJOBS)
+
+Else
+
+
+DBG: Use Builtin(CLR_MESSAGES)
+
+* Nightly Invoice Print
+Change Field(#WK_DEPEND) To(*NULL)
+
+* Invoice Print
+
+Execute Subroutine(CALL_FUNC) With_Parms(INHDR04)
+
+If_Null Field(#WK_DEPEND)
+
+* Email invoices
+Change Field(#WK_ORDMNT) To(B)
+* EXCHANGE FIELDS(#WK_ORDMNT)
+* EXECUTE SUBROUTINE(CALL_FUNC) WITH_PARMS(INHDR48)
+Submit Process(INHDPROC03) Function(INHDR48) Exchange(#WK_ORDMNT) Job(NITE_EMINV) Jobd(VIAEMLINV)
+
+* SUBMIT PROCESS(INHDPROC04) FUNCTION(INHDR27) EXCHANGE(#WK_ORDMNT) JOB(NITE_UHINV) JOBD(VIAEMLINV)
+* SUBMIT PROCESS(INHDPROC05) FUNCTION(INHDRU2) EXCHANGE(#WK_ORDMNT) JOB(NIT_UH1PDF) JOBD(VIAEMLINV)
+
+Endif
+
+* Optum Invoice
+* EXECUTE SUBROUTINE(CALL_FUNC) WITH_PARMS(INHDR96)
+
+Change Field(#WK_DEPEND) To(*NULL)
+* Quote Report to be sendt to Marie L
+Execute Subroutine(CALL_FUNC) With_Parms(QUOTR04)
+
+* Customer Web Order Distrubution Count Report
+Execute Subroutine(CALL_FUNC) With_Parms(SCHDR01)
+
+* Customer Inventory below Minimum Warning
+Execute Subroutine(CALL_FUNC) With_Parms(INVER06)
+
+* Order Counts Report
+Execute Subroutine(CALL_FUNC) With_Parms(ORHDE23)
+
+* End of Month UK DHL .CSV Email Report
+Execute Subroutine(CALL_FUNC) With_Parms(ORHDR78)
+
+* Salesforce API Problem email
+Execute Subroutine(CALL_FUNC) With_Parms(SALFC09)
+
+* Settle Credit Cards (9/30/14 moved from NITEC10)
+Execute Subroutine(CALL_FUNC) With_Parms(KSHDC14)
+
+* Credit Cards Batch Post for JDE Auto Cash Application
+Execute Subroutine(CALL_FUNC) With_Parms(CCBHC02)
+* chg1 -BRD Backlog
+Execute Subroutine(CALL_FUNC) With_Parms(INVER12)
+* Vendor Backlog Automation
+Substring Field(#YYYYMMDD) Into_Field(#WK_DATE8A)
+Use Builtin(CONVERTDATE) With_Args(#WK_DATE8A J S) To_Get(#WK_DAYNAM)
+If Cond(*MONDAY)
+Execute Subroutine(CALL_FUNC) With_Parms(ORHDR91)
+* CHG2
+Execute Subroutine(CALL_FUNC) With_Parms(INHDRR9)
+Endif
+* Email inventory notification
+Execute Subroutine(CALL_FUNC) With_Parms(INWHEML)
+
+* New reports for Accounting-'SalesRep Open Invoice Report'
+Execute Subroutine(CALL_FUNC) With_Parms(INHDRA3)
+
+* Process All Dated Functions'
+Execute Subroutine(CALL_FUNC) With_Parms(CUFSE02)
+
+* Process All Nightly Functions'
+Execute Subroutine(CALL_FUNC) With_Parms(CUFSE03)
+
+* Process All Month End Functions'
+Execute Subroutine(CALL_FUNC) With_Parms(CUFSE06)
+
+* Process All Weekly Functions'
+Execute Subroutine(CALL_FUNC) With_Parms(CUFSE07)
+* CHG1
+Execute Subroutine(CALL_FUNC) With_Parms(KSHDR55)
+
+* CHG1- Nightly email of kit lines not on a shipment
+Execute Subroutine(CALL_FUNC) With_Parms(OKHDR07)
+
+Endif
+
+Return
+
+
+* Execute Functions and Trap any Errors
+
+Subroutine Name(CALL_FUNC) Parms((#UFFUNM *RECEIVED))
+
+Use Builtin(CLR_MESSAGES)
+
+* Print Audit of Function to be Called
+
+Fetch Fields(#UFDESC) From_File(UFUN) With_Key(#UFFUNM)
+If_Status Is_Not(*OKAY)
+Change Field(#UFDESC) To(*NULL)
+Endif
+
+Change Field(#WK_TIME) To(*TIME)
+
+Print Line(#DET01)
+
+
+* Call Requested Function
+
+Call Process(*DIRECT) Function(#UFFUNM) Exit_Used(*NEXT) Menu_Used(*NEXT) If_Error(*NEXT)
+
+Use Builtin(GET_MESSAGE) To_Get(#WK_RETCDE #WK_ERRMSG)
+
+Dowhile Cond('#WK_RETCDE *EQ OK')
+
+Print Line(#ERR01)
+
+* If Function Failed, Set Dependency Flag
+
+Substring Field(#WK_ERRMSG) Into_Field(#WK_DESC1)
+Substring Field(#WK_ERRMSG) Into_Field(#WK_DESC2)
+* Ignore DLTOVR message
+If Cond('#WK_DESC2 *NE ''Function check. CPF9841''')
+If Cond('#WK_DESC1 = ''Function''')
+Change Field(#WK_DEPEND) To(Y)
+Endif
+Endif
+
+Use Builtin(GET_MESSAGE) To_Get(#WK_RETCDE #WK_ERRMSG)
+Endwhile
+
+Endroutine
